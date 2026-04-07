@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Wallet, Plus, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
@@ -21,7 +21,7 @@ export default function Facturation() {
     notes: '',
   });
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('cash_ledger')
@@ -39,11 +39,11 @@ export default function Facturation() {
     }
     setLines(data || []);
     setLoading(false);
-  }
+  }, [jourFilter]);
 
   useEffect(() => {
     load();
-  }, [jourFilter]);
+  }, [load]);
 
   const totals = useMemo(() => {
     let encFc = 0;

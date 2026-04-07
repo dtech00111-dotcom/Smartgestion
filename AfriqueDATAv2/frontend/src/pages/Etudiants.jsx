@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Pencil, Trash2, LayoutList, Network } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -28,11 +28,7 @@ export default function Etudiants() {
   const [selected, setSelected] = useState(new Set());
   const [viewMode, setViewMode] = useState('liste'); // 'liste' | 'groupe'
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     const [stuRes, promRes, facRes, depRes] = await Promise.all([
       supabase
         .from('students')
@@ -48,7 +44,11 @@ export default function Etudiants() {
     setDepartments(depRes.data || []);
     setLoading(false);
     setSelected(new Set());
-  }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const hasOrphanPromotions = useMemo(() => {
     return (fid) => promotions.some((p) => p.faculty_id === fid && !p.department_id);
@@ -107,7 +107,7 @@ export default function Etudiants() {
     return tree;
   }, [filtered]);
 
-  function toggleAllPage() {
+  const toggleAllPage = useCallback(() => {
     const pageIds = paginated.map((s) => s.id);
     const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
     setSelected((prev) => {
@@ -116,16 +116,16 @@ export default function Etudiants() {
       else pageIds.forEach((id) => next.add(id));
       return next;
     });
-  }
+  }, [paginated, selected]);
 
-  function toggleOne(id) {
+  const toggleOne = useCallback((id) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }
+  }, []);
 
   async function handleBulkDelete() {
     if (selected.size === 0) return;
@@ -165,15 +165,18 @@ export default function Etudiants() {
     }
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm('Supprimer cet étudiant ?')) return;
-    const { error } = await supabase.from('students').delete().eq('id', id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success('Étudiant supprimé');
-      loadData();
-    }
-  }
+  const handleDelete = useCallback(
+    async (id) => {
+      if (!window.confirm('Supprimer cet étudiant ?')) return;
+      const { error } = await supabase.from('students').delete().eq('id', id);
+      if (error) toast.error(error.message);
+      else {
+        toast.success('Étudiant supprimé');
+        loadData();
+      }
+    },
+    [loadData]
+  );
 
   function pickDefaultDepartment(fid) {
     const depts = departments.filter((d) => d.faculty_id === fid);
@@ -266,7 +269,7 @@ export default function Etudiants() {
         ),
       },
     ],
-    [paginated, selected]
+    [paginated, selected, toggleAllPage, toggleOne, handleDelete]
   );
 
   if (loading) {
