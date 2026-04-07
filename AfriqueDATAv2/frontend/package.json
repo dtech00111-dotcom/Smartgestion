@@ -4,7 +4,7 @@
   "private": true,
   "description": "Smart Gestion — plateforme de gestion des activites numeriques (UNILU Salle du Numerique)",
   "author": "UNILU",
-  "homepage": ".",
+  "homepage": "/",
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
     "@testing-library/dom": "^10.4.1",
