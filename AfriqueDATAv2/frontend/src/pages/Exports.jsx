@@ -66,7 +66,7 @@ export default function Exports() {
   function handleExportExcel() {
     if (!activity) return;
     try {
-      exportActivityToExcel(activity, participations);
+      exportActivityToExcel(activity, participations, adminProfile?.nom_complet || 'Secrétaire');
       toast.success('Rapport secrétaire Excel téléchargé');
     } catch (err) {
       toast.error(err.message);
@@ -86,7 +86,7 @@ export default function Exports() {
   function handleExportExcelCotation() {
     if (!activity) return;
     try {
-      exportActivityToExcelCotation(activity, participations);
+      exportActivityToExcelCotation(activity, participations, adminProfile?.nom_complet || 'Secrétaire');
       toast.success('Liste cotation Excel téléchargée');
     } catch (err) {
       toast.error(err.message);

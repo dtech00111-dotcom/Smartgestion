@@ -322,19 +322,19 @@ export default function ActiviteDetail() {
           <div className="space-y-2">
             <p className="text-xs font-medium text-slate-500">Rapport secrétaire (paiements)</p>
             <div className="flex gap-2">
-              <button onClick={() => { exportActivityToExcel(activity, participations); toast.success('Export Excel téléchargé'); }} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">
+              <button onClick={() => { exportActivityToExcel(activity, participations, adminProfile?.nom_complet || 'Secrétaire'); toast.success('Export Excel téléchargé'); }} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors">
                 <FileSpreadsheet className="w-4 h-4" /> Excel
               </button>
-              <button onClick={async () => { try { await exportActivityToPDF(activity, participations, adminProfile?.nom_complet); toast.success('Export PDF téléchargé'); } catch (e) { toast.error(e?.message || 'Erreur export PDF'); } }} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-700 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
+              <button onClick={async () => { try { await exportActivityToPDF(activity, participations, adminProfile?.nom_complet || 'Secrétaire'); toast.success('Export PDF téléchargé'); } catch (e) { toast.error(e?.message || 'Erreur export PDF'); } }} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-700 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition-colors">
                 <FileText className="w-4 h-4" /> PDF
               </button>
             </div>
             <p className="text-xs font-medium text-slate-500 mt-3">Liste de cotation (notes)</p>
             <div className="flex gap-2">
-              <button onClick={() => { exportActivityToExcelCotation(activity, participations); toast.success('Liste cotation Excel téléchargée'); }} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
+              <button onClick={() => { exportActivityToExcelCotation(activity, participations, adminProfile?.nom_complet || 'Secrétaire'); toast.success('Liste cotation Excel téléchargée'); }} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
                 <FileSpreadsheet className="w-4 h-4" /> Excel
               </button>
-              <button onClick={async () => { try { await exportActivityToPDFCotation(activity, participations, adminProfile?.nom_complet); toast.success('Liste cotation PDF téléchargée'); } catch (e) { toast.error(e?.message || 'Erreur export PDF'); } }} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-700 text-white rounded-xl text-sm font-medium hover:bg-emerald-800 transition-colors">
+              <button onClick={async () => { try { await exportActivityToPDFCotation(activity, participations, adminProfile?.nom_complet || 'Secrétaire'); toast.success('Liste cotation PDF téléchargée'); } catch (e) { toast.error(e?.message || 'Erreur export PDF'); } }} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-700 text-white rounded-xl text-sm font-medium hover:bg-emerald-800 transition-colors">
                 <FileText className="w-4 h-4" /> PDF
               </button>
             </div>

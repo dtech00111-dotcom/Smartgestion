@@ -7,6 +7,80 @@ import { activityScheduleLine } from './activityTime';
 const DEVISE_LABEL = 'FC';
 const DEVISE_LIBELLE = 'Franc congolais (FC)';
 
+/** Logo plateforme depuis /public (ex. logo-salle-numerique.png) — null si absent */
+export async function loadPlatformLogoForPdf() {
+  if (typeof window === 'undefined') return null;
+  const paths = ['/logo-salle-numerique.png', '/logo.png'];
+  for (const p of paths) {
+    try {
+      const res = await fetch(new URL(p, window.location.origin).href);
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onloadend = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      const mime = blob.type || '';
+      const fmt = mime.includes('jpeg') || mime.includes('jpg') ? 'JPEG' : 'PNG';
+      return { dataUrl, format: fmt };
+    } catch {
+      /* essai suivant */
+    }
+  }
+  return null;
+}
+
+function drawPdfHeader(doc, font, logo, subtitle = 'Salle du Numérique – UNILU', titleY = 14) {
+  const pageW = doc.internal.pageSize.width;
+  doc.setFillColor(37, 99, 235);
+  doc.rect(0, 0, pageW, 32, 'F');
+  if (logo?.dataUrl) {
+    try {
+      doc.addImage(logo.dataUrl, logo.format, 11, 8, 14, 14);
+    } catch {
+      /* image invalide : en-tête texte seul */
+    }
+  }
+  doc.setFont(font, 'bold');
+  doc.setTextColor(255, 255, 255);
+  const textX = logo ? 34 : pageW / 2;
+  const align = logo ? 'left' : 'center';
+  doc.setFontSize(17);
+  doc.text('SMART GESTION', textX, titleY, { align });
+  doc.setFontSize(9);
+  doc.setFont(font, 'normal');
+  doc.text(subtitle, textX, titleY + 7, { align });
+  doc.setTextColor(0, 0, 0);
+}
+
+function drawSignatureBlock(doc, font, adminName, startY) {
+  const pageH = doc.internal.pageSize.height;
+  let y = startY;
+  const blockH = 36;
+  if (y + blockH > pageH - 22) {
+    doc.addPage();
+    y = 24;
+  }
+  doc.setFont(font, 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59);
+  doc.text(`Secrétaire : ${adminName || '—'}`, 14, y);
+  doc.setFont(font, 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Signature et cachet (après contrôle du document)', 14, y + 7);
+  doc.setDrawColor(51, 65, 85);
+  doc.setLineWidth(0.35);
+  doc.line(14, y + 18, 110, y + 18);
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Signé le : ___ / ___ / ________    à ___________________', 14, y + 25);
+  doc.setTextColor(0, 0, 0);
+  return y + blockH;
+}
+
 /** Nom de fichier sans caractères problématiques pour le disque */
 export function sanitizeExportFilename(str) {
   if (!str || typeof str !== 'string') return 'activite';
@@ -35,6 +109,8 @@ export async function exportActivityToPDF(activity, participations, adminName = 
   const doc = new jsPDF();
   const usedNoto = await registerNotoSansForPdf(doc);
   const font = usedNoto ? 'NotoSans' : 'helvetica';
+  const logo = await loadPlatformLogoForPdf();
+  const secName = adminName?.trim() || 'Secrétaire';
 
   const total = participations.reduce((s, p) => s + Number(p.montant), 0);
   const dateGen = new Date().toLocaleString('fr-FR', {
@@ -43,16 +119,12 @@ export async function exportActivityToPDF(activity, participations, adminName = 
   });
   const pageHeight = doc.internal.pageSize.height;
 
-  const addHeader = (y = 12) => {
-    doc.setFont(font, 'bold');
-    doc.setFillColor(37, 99, 235);
-    doc.rect(0, 0, doc.internal.pageSize.width, 28, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.text('SMART GESTION', 105, y, { align: 'center' });
-    doc.setFontSize(10);
+  const addHeader = () => {
+    drawPdfHeader(doc, font, logo, 'Rapport secrétaire – Salle du Numérique UNILU', 14);
     doc.setFont(font, 'normal');
-    doc.text('Rapport secrétaire – Salle du Numérique UNILU', 105, y + 14, { align: 'center' });
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Secrétaire : ${secName}`, doc.internal.pageSize.width - 14, 28, { align: 'right' });
     doc.setTextColor(0, 0, 0);
   };
 
@@ -60,9 +132,9 @@ export async function exportActivityToPDF(activity, participations, adminName = 
 
   doc.setFont(font, 'normal');
   doc.setFontSize(9);
-  doc.text(`Activité : ${activity.nom || ''}`, 14, 38);
-  doc.text(`Type : ${activity.activity_types?.nom || '-'}`, 14, 43);
-  doc.text(`Date : ${activity.date_debut} • Créneau : ${activityScheduleLine(activity)}`, 14, 48);
+  doc.text(`Activité : ${activity.nom || ''}`, 14, 40);
+  doc.text(`Type : ${activity.activity_types?.nom || '-'}`, 14, 45);
+  doc.text(`Date : ${activity.date_debut} • Créneau : ${activityScheduleLine(activity)}`, 14, 50);
 
   const headers = [[`N°`, `Nom complet`, `Faculté`, `Promotion`, `Montant (${DEVISE_LABEL})`]];
   const rows = participations.map((p, i) => [
@@ -76,26 +148,27 @@ export async function exportActivityToPDF(activity, participations, adminName = 
   autoTable(doc, {
     head: headers,
     body: rows,
-    startY: 54,
+    startY: 56,
     styles: { font: font, fontStyle: 'normal', fontSize: 8 },
     headStyles: { fillColor: [241, 245, 249], textColor: [51, 65, 85], fontStyle: 'normal', font: font },
     margin: { left: 14, right: 14 },
     didDrawPage: (data) => {
       if (data.pageNumber > 1) return;
-      addHeader(14);
+      addHeader();
     },
   });
 
-  const finalY = doc.lastAutoTable.finalY + 14;
+  const finalY = doc.lastAutoTable.finalY + 10;
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.5);
-  doc.line(14, finalY - 4, 196, finalY - 4);
+  doc.line(14, finalY - 2, 196, finalY - 2);
   doc.setFont(font, 'normal');
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
-  doc.text(`Total encaissé : ${formatMontantFC(total)} (${DEVISE_LIBELLE})`, 14, finalY + 4);
-  doc.text(`Généré par : ${adminName}`, 14, finalY + 10);
-  doc.text(`Date et heure : ${dateGen}`, 14, finalY + 16);
+  doc.text(`Total encaissé : ${formatMontantFC(total)} (${DEVISE_LIBELLE})`, 14, finalY + 6);
+  doc.setFontSize(9);
+  doc.text(`Document généré le ${dateGen}`, 14, finalY + 13);
+  drawSignatureBlock(doc, font, secName, finalY + 20);
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
   doc.text('Document officiel – SMART GESTION – Salle du Numérique UNILU', 105, pageHeight - 8, { align: 'center' });
@@ -109,25 +182,23 @@ export async function exportActivityToPDFCotation(activity, participations, admi
   const doc = new jsPDF();
   const usedNoto = await registerNotoSansForPdf(doc);
   const font = usedNoto ? 'NotoSans' : 'helvetica';
+  const logo = await loadPlatformLogoForPdf();
+  const secName = adminName?.trim() || 'Secrétaire';
 
   const dateGen = new Date().toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
   const pageHeight = doc.internal.pageSize.height;
 
-  doc.setFont(font, 'bold');
-  doc.setFillColor(37, 99, 235);
-  doc.rect(0, 0, doc.internal.pageSize.width, 24, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
-  doc.text('SMART GESTION', 105, 12, { align: 'center' });
-  doc.setFontSize(10);
+  drawPdfHeader(doc, font, logo, 'Liste de cotation – Salle du Numérique UNILU', 13);
   doc.setFont(font, 'normal');
-  doc.text('Liste de cotation – Salle du Numérique UNILU', 105, 18, { align: 'center' });
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`Secrétaire : ${secName}`, doc.internal.pageSize.width - 14, 28, { align: 'right' });
   doc.setTextColor(0, 0, 0);
 
   doc.setFont(font, 'normal');
   doc.setFontSize(9);
-  doc.text(`Activité : ${activity.nom || ''}`, 14, 34);
-  doc.text(`Type : ${activity.activity_types?.nom || '-'}`, 14, 40);
+  doc.text(`Activité : ${activity.nom || ''}`, 14, 38);
+  doc.text(`Type : ${activity.activity_types?.nom || '-'}`, 14, 44);
 
   const headers = [['N°', 'Nom complet', 'Matricule', 'Faculté', 'Promotion', 'Cote']];
   const rows = participations.map((p, i) => [
@@ -142,34 +213,36 @@ export async function exportActivityToPDFCotation(activity, participations, admi
   autoTable(doc, {
     head: headers,
     body: rows,
-    startY: 46,
+    startY: 50,
     styles: { font: font, fontStyle: 'normal', fontSize: 8 },
     headStyles: { fillColor: [241, 245, 249], textColor: [51, 65, 85], fontStyle: 'normal', font: font },
     margin: { left: 14, right: 14 },
   });
 
-  const finalY = doc.lastAutoTable.finalY + 12;
+  const finalY = doc.lastAutoTable.finalY + 8;
   doc.setFont(font, 'normal');
   doc.setFontSize(9);
-  doc.text(`Généré par : ${adminName}`, 14, finalY);
-  doc.text(`Date : ${dateGen}`, 14, finalY + 6);
+  doc.text(`Document généré le ${dateGen}`, 14, finalY);
+  drawSignatureBlock(doc, font, secName, finalY + 10);
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text('Liste de cotation – Document académique', 105, pageHeight - 8, { align: 'center' });
+  doc.text('Liste de cotation – Document académique – SMART GESTION', 105, pageHeight - 8, { align: 'center' });
   doc.save(`liste-cotation-${sanitizeExportFilename(activity.nom)}-${activity.date_debut}.pdf`);
 }
 
 /**
  * Excel – Rapport secrétaire (montants numériques en colonne, devise indiquée)
  */
-export function exportActivityToExcel(activity, participations) {
+export function exportActivityToExcel(activity, participations, adminName = 'Secrétaire') {
   const total = participations.reduce((s, p) => s + Number(p.montant), 0);
   const dateGen = new Date().toLocaleDateString('fr-FR');
   const typeNom = activity.activity_types?.nom || '-';
+  const secName = adminName?.trim() || 'Secrétaire';
 
   const header = [
     ['SMART GESTION – Rapport secrétaire'],
     ['Salle du Numérique – UNILU'],
+    [`Secrétaire : ${secName}`],
     [`Devise des montants : ${DEVISE_LIBELLE}`],
     [],
     [`Nom activité : ${activity.nom}`],
@@ -190,8 +263,12 @@ export function exportActivityToExcel(activity, participations) {
     [],
     ['Total encaissé (FC)', '', '', '', total],
     [],
-    ['Signature secrétaire : ___________________________'],
-    [`Date de génération : ${dateGen}`],
+    [`Secrétaire (confirmé) : ${secName}`],
+    ['Signature et cachet (après contrôle) :'],
+    ['', '', '', '', '_____________________________________________'],
+    ['Date de signature : ___ / ___ / ________    Lieu : ___________________'],
+    [],
+    [`Fichier généré le ${dateGen} – SMART GESTION`],
   ];
   const sheet1Data = [...header, ...rows, ...footer];
   const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
@@ -222,11 +299,13 @@ export function exportActivityToExcel(activity, participations) {
 /**
  * Excel – Liste de cotation
  */
-export function exportActivityToExcelCotation(activity, participations) {
+export function exportActivityToExcelCotation(activity, participations, adminName = 'Secrétaire') {
   const dateGen = new Date().toLocaleDateString('fr-FR');
+  const secName = adminName?.trim() || 'Secrétaire';
   const header = [
     ['SMART GESTION – Liste de cotation'],
     ['Salle du Numérique – UNILU'],
+    [`Secrétaire : ${secName}`],
     [],
     [`Activité : ${activity.nom}`],
     [`Type : ${activity.activity_types?.nom || '-'}`],
@@ -242,7 +321,13 @@ export function exportActivityToExcelCotation(activity, participations) {
     p.promotions?.nom || '-',
     p.cote || '',
   ]);
-  const footer = [[], [`Document généré le ${dateGen} – Salle du Numérique UNILU`]];
+  const footer = [
+    [],
+    [`Secrétaire : ${secName}`],
+    ['Signature et cachet :'],
+    ['', '', '', '', '', '_____________________________________'],
+    [`Document généré le ${dateGen} – SMART GESTION`],
+  ];
   const ws = XLSX.utils.aoa_to_sheet([...header, ...rows, ...footer]);
   applyExcelColWidths(ws, [5, 28, 14, 22, 22, 10]);
   const wb = XLSX.utils.book_new();
