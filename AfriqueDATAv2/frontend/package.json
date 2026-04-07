@@ -2,6 +2,8 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "description": "Smart Gestion — plateforme de gestion des activites numeriques (UNILU Salle du Numerique)",
+  "author": "UNILU",
   "homepage": ".",
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

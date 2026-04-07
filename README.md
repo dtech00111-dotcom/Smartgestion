@@ -26,7 +26,7 @@
 ### 2. Frontend
 
 ```bash
-cd frontend
+cd AfriqueDATAv2/frontend
 cp .env.example .env
 # Éditez .env avec votre URL Supabase et clé anon
 npm install
@@ -34,6 +34,12 @@ npm start
 ```
 
 Ouvre http://localhost:3000
+
+### Application bureau et base locale
+
+- **PostgreSQL / Supabase en local** (Docker) et **installateur Windows** : voir [`AfriqueDATAv2/DEMARRAGE_LOCAL.md`](AfriqueDATAv2/DEMARRAGE_LOCAL.md).
+- **Exécutable Windows** : dossier `AfriqueDATAv2/electron` — voir [`AfriqueDATAv2/electron/COMMENT_BUILDER_EXE.md`](AfriqueDATAv2/electron/COMMENT_BUILDER_EXE.md). Racine : `npm run desktop:dist` ou `desktop:setup`.
+- Racine du dépôt : `npm run supabase:start` / `supabase:stop` / `supabase:status`.
 
 - **Admin** : connectez-vous avec l'email/mot de passe créé
 - **Formulaire QR** : `/inscription/{id_activite}` (lien généré par le QR de chaque activité)

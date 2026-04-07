@@ -20,6 +20,7 @@ import {
   CalendarCheck,
   Megaphone,
   FileText,
+  Landmark,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -46,6 +47,7 @@ const sectionsConfig = [
   ] },
   { label: 'FINANCE', items: [
     { path: '/admin/paiements', Icon: Wallet, label: 'Paiements', badgeKey: 'enAttente' },
+    { path: '/admin/facturation', Icon: Landmark, label: 'Facturation & caisse', badgeKey: null },
     { path: '/admin/exports', Icon: FileDown, label: 'Exports', badgeKey: null },
   ] },
   { label: 'ADMINISTRATION', items: [

@@ -21,6 +21,10 @@ export default function FaculteDetail() {
   const [importing, setImporting] = useState(null);
   const [pratiques, setPratiques] = useState([]);
   const [expandedPratiques, setExpandedPratiques] = useState(true);
+  /** Sélection par promotion : { [promotionId]: string[] } */
+  const [studentSelection, setStudentSelection] = useState({});
+  const [studentModal, setStudentModal] = useState({ open: false, promotionId: '' });
+  const [studentForm, setStudentForm] = useState({ matricule: '', nom_complet: '', telephone: '' });
 
   useEffect(() => {
     loadData();
@@ -65,6 +69,73 @@ export default function FaculteDetail() {
   async function loadStudents(promoId) {
     const { data } = await supabase.from('students').select('*').eq('promotion_id', promoId).order('nom_complet');
     setStudentsByPromo((s) => ({ ...s, [promoId]: data || [] }));
+    setStudentSelection((sel) => ({ ...sel, [promoId]: [] }));
+  }
+
+  function toggleStudentSelect(promoId, studentId) {
+    setStudentSelection((prev) => {
+      const cur = new Set(prev[promoId] || []);
+      if (cur.has(studentId)) cur.delete(studentId);
+      else cur.add(studentId);
+      return { ...prev, [promoId]: [...cur] };
+    });
+  }
+
+  function toggleAllStudentsOnPromo(promoId, students) {
+    const ids = students.map((s) => s.id);
+    setStudentSelection((prev) => {
+      const cur = new Set(prev[promoId] || []);
+      const all = ids.length > 0 && ids.every((id) => cur.has(id));
+      const next = new Set(cur);
+      if (all) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return { ...prev, [promoId]: [...next] };
+    });
+  }
+
+  async function bulkDeleteStudents(promoId) {
+    const ids = studentSelection[promoId] || [];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Supprimer ${ids.length} étudiant(s) de cette promotion ?`)) return;
+    const { error } = await supabase.from('students').delete().in('id', ids);
+    if (error) toast.error(error.message);
+    else {
+      toast.success('Étudiants supprimés');
+      loadStudents(promoId);
+    }
+  }
+
+  async function handleAddStudent(e) {
+    e.preventDefault();
+    const promotionId = studentModal.promotionId;
+    if (!promotionId) return;
+    try {
+      const { error } = await supabase.from('students').insert([
+        {
+          promotion_id: promotionId,
+          matricule: studentForm.matricule.trim(),
+          nom_complet: studentForm.nom_complet.trim(),
+          telephone: studentForm.telephone.trim() || null,
+        },
+      ]);
+      if (error) throw error;
+      toast.success('Étudiant ajouté');
+      setStudentModal({ open: false, promotionId: '' });
+      setStudentForm({ matricule: '', nom_complet: '', telephone: '' });
+      loadStudents(promotionId);
+    } catch (err) {
+      toast.error(err?.message || 'Erreur');
+    }
+  }
+
+  async function deleteOneStudent(promoId, studentId) {
+    if (!window.confirm('Supprimer cet étudiant ?')) return;
+    const { error } = await supabase.from('students').delete().eq('id', studentId);
+    if (error) toast.error(error.message);
+    else {
+      toast.success('Étudiant supprimé');
+      loadStudents(promoId);
+    }
   }
 
   function toggleDept(deptId) {
@@ -317,23 +388,81 @@ export default function FaculteDetail() {
                           </div>
                           {isPromoExpanded && (
                             <div className="bg-slate-50/50 px-4 py-3 border-t border-slate-100">
-                              <p className="text-xs text-slate-500 mb-2">
-                                Liste officielle • {students.length} étudiant(s)
-                              </p>
-                              <div className="max-h-48 overflow-y-auto text-sm">
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <p className="text-xs text-slate-500">
+                                  Liste officielle • {students.length} étudiant(s) — nom complet, téléphone ; sélection et suppression groupée possible
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {(studentSelection[promo.id] || []).length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => bulkDeleteStudents(promo.id)}
+                                      className="text-xs px-2 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                                    >
+                                      Supprimer ({(studentSelection[promo.id] || []).length})
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setStudentForm({ matricule: '', nom_complet: '', telephone: '' });
+                                      setStudentModal({ open: true, promotionId: promo.id });
+                                    }}
+                                    className="text-xs px-2 py-1 rounded-lg bg-primary-600 text-white hover:bg-primary-700"
+                                  >
+                                    + Ajouter un nom
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="max-h-64 overflow-y-auto text-sm">
                                 {students.length === 0 ? (
-                                  <p className="text-slate-400">Aucun étudiant. Importez une liste Excel ou PDF (colonnes: Matricule, Nom complet).</p>
+                                  <p className="text-slate-400">Aucun étudiant. Importez une liste Excel ou PDF (colonnes: Matricule, Nom complet) ou cliquez sur « Ajouter un nom ».</p>
                                 ) : (
                                   <table className="w-full text-slate-700">
-                                    <thead><tr><th className="text-left py-1 font-medium">Matricule</th><th className="text-left py-1 font-medium">Nom</th></tr></thead>
+                                    <thead>
+                                      <tr>
+                                        <th className="text-left py-1 w-8">
+                                          <input
+                                            type="checkbox"
+                                            title="Tout sélectionner"
+                                            checked={students.length > 0 && students.every((s) => (studentSelection[promo.id] || []).includes(s.id))}
+                                            onChange={() => toggleAllStudentsOnPromo(promo.id, students)}
+                                          />
+                                        </th>
+                                        <th className="text-left py-1 font-medium">Matricule</th>
+                                        <th className="text-left py-1 font-medium">Nom complet</th>
+                                        <th className="text-left py-1 font-medium">Téléphone</th>
+                                        <th className="text-right py-1 font-medium w-10"> </th>
+                                      </tr>
+                                    </thead>
                                     <tbody>
-                                      {students.slice(0, 20).map((s) => (
-                                        <tr key={s.id}><td className="py-1">{s.matricule}</td><td>{s.nom_complet}</td></tr>
+                                      {students.map((s) => (
+                                        <tr key={s.id}>
+                                          <td className="py-1 align-middle">
+                                            <input
+                                              type="checkbox"
+                                              checked={(studentSelection[promo.id] || []).includes(s.id)}
+                                              onChange={() => toggleStudentSelect(promo.id, s.id)}
+                                            />
+                                          </td>
+                                          <td className="py-1">{s.matricule}</td>
+                                          <td className="py-1 font-medium">{s.nom_complet}</td>
+                                          <td className="py-1">{s.telephone || '—'}</td>
+                                          <td className="py-1 text-right">
+                                            <button
+                                              type="button"
+                                              onClick={() => deleteOneStudent(promo.id, s.id)}
+                                              className="p-1 text-slate-400 hover:text-red-600"
+                                              title="Supprimer"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </td>
+                                        </tr>
                                       ))}
                                     </tbody>
                                   </table>
                                 )}
-                                {students.length > 20 && <p className="text-slate-400 text-xs mt-1">+ {students.length - 20} autres</p>}
                               </div>
                             </div>
                           )}
@@ -401,6 +530,35 @@ export default function FaculteDetail() {
               <div><label className="block text-sm font-medium mb-2">Code</label><input type="text" value={formDept.code} onChange={(e) => setFormDept({ ...formDept, code: e.target.value })} className="input-field" /></div>
               <div className="flex gap-3 justify-end">
                 <button type="button" onClick={() => setModalDept({ open: false })} className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl">Annuler</button>
+                <button type="submit" className="btn-primary">Enregistrer</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal ajout étudiant (une ligne) */}
+      {studentModal.open && (
+        <div className="modal-overlay" onClick={() => setStudentModal({ open: false, promotionId: '' })}>
+          <div className="modal-content max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-4">Ajouter un étudiant à cette promotion</h2>
+            <form onSubmit={handleAddStudent} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Matricule</label>
+                <input type="text" value={studentForm.matricule} onChange={(e) => setStudentForm({ ...studentForm, matricule: e.target.value })} required className="input-field" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Nom complet</label>
+                <input type="text" value={studentForm.nom_complet} onChange={(e) => setStudentForm({ ...studentForm, nom_complet: e.target.value })} required className="input-field" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Téléphone</label>
+                <input type="tel" value={studentForm.telephone} onChange={(e) => setStudentForm({ ...studentForm, telephone: e.target.value })} className="input-field" />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button type="button" onClick={() => setStudentModal({ open: false, promotionId: '' })} className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl">
+                  Annuler
+                </button>
                 <button type="submit" className="btn-primary">Enregistrer</button>
               </div>
             </form>

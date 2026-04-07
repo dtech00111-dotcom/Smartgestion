@@ -18,6 +18,7 @@ import Activites from './pages/Activites';
 import ActiviteDetail from './pages/ActiviteDetail';
 import TypesActivite from './pages/TypesActivite';
 import Paiements from './pages/Paiements';
+import Facturation from './pages/Facturation';
 import Exports from './pages/Exports';
 import Parametres from './pages/Parametres';
 import Analytics from './pages/Analytics';
@@ -82,6 +83,7 @@ function App() {
             <Route path="annonces" element={<Annonces />} />
             <Route path="types-activite" element={<TypesActivite />} />
             <Route path="paiements" element={<Paiements />} />
+            <Route path="facturation" element={<Facturation />} />
             <Route path="exports" element={<Exports />} />
             <Route path="parametres" element={<Parametres />} />
           </Route>

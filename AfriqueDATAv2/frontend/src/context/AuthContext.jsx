@@ -12,8 +12,21 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
-    async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
+    const SESSION_TIMEOUT_MS = 12000;
+
+    function getSessionWithTimeout() {
+      return Promise.race([
+        supabase.auth.getSession(),
+        new Promise((resolve) =>
+          setTimeout(
+            () => resolve({ data: { session: null }, error: { message: 'session_timeout' } }),
+            SESSION_TIMEOUT_MS
+          )
+        ),
+      ]);
+    }
+
+    async function applySessionFromData(session) {
       setUser(session?.user ?? null);
       if (session?.user) {
         const [adminP, formateurP] = await Promise.all([
@@ -27,33 +40,69 @@ export function AuthProvider({ children }) {
         setAdminProfile(null);
         setFormateurProfile(null);
       }
-      if (mounted) setLoading(false);
+    }
+
+    async function init() {
+      try {
+        const { data: { session } } = await getSessionWithTimeout();
+        if (!mounted) return;
+        await applySessionFromData(session);
+      } catch {
+        if (mounted) {
+          setUser(null);
+          setAdminProfile(null);
+          setFormateurProfile(null);
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setLoading(true);
-          const [adminP, formateurP] = await Promise.all([
-            fetchAdminProfile(session.user.id),
-            fetchFormateurProfile(session.user.id),
-          ]);
-          setAdminProfile(adminP ?? null);
-          setFormateurProfile(formateurP ?? null);
-          if (!adminP && !formateurP) await supabase.auth.signOut();
-        } else {
-          setAdminProfile(null);
-          setFormateurProfile(null);
+        try {
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            setLoading(true);
+            const [adminP, formateurP] = await Promise.all([
+              fetchAdminProfile(session.user.id),
+              fetchFormateurProfile(session.user.id),
+            ]);
+            setAdminProfile(adminP ?? null);
+            setFormateurProfile(formateurP ?? null);
+            if (!adminP && !formateurP) await supabase.auth.signOut();
+          } else {
+            setAdminProfile(null);
+            setFormateurProfile(null);
+          }
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
+
+    // Après réduction de fenêtre (Electron) : getSession peut rester en attente ; on resynchronise au retour visible.
+    function onVisibilityChange() {
+      if (document.visibilityState !== 'visible' || !mounted) return;
+      setTimeout(async () => {
+        if (!mounted) return;
+        try {
+          const { data: { session } } = await getSessionWithTimeout();
+          await applySessionFromData(session);
+        } catch {
+          /* ignore */
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      }, 120);
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
 

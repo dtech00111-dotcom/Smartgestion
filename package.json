@@ -2,6 +2,11 @@
   "name": "smart-gestion",
   "private": true,
   "scripts": {
-    "build": "cd AfriqueDATAv2/frontend && npm install && npm run build"
+    "build": "cd AfriqueDATAv2/frontend && npm install && npm run build",
+    "desktop:dist": "cd AfriqueDATAv2/electron && npm install && npm run dist",
+    "desktop:setup": "cd AfriqueDATAv2/electron && npm install && npm run dist:setup",
+    "supabase:start": "cd AfriqueDATAv2 && npx supabase@latest start",
+    "supabase:stop": "cd AfriqueDATAv2 && npx supabase@latest stop",
+    "supabase:status": "cd AfriqueDATAv2 && npx supabase@latest status"
   }
 }

@@ -21,7 +21,17 @@ const CARD_COLORS = ['#dc2626', '#ef4444', '#b91c1c', '#991b1b'];
 const PIE_COLORS = ['#dc2626', '#f87171'];
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ activites: 0, totalEncaisse: 0, etudiants: 0, visiteurs: 0 });
+  const [stats, setStats] = useState({
+    activites: 0,
+    totalEncaisse: 0,
+    etudiants: 0,
+    visiteurs: 0,
+    visiteursFiches: 0,
+    abonnementsActifs: 0,
+    caisseJourFc: 0,
+    caisseJourUsd: 0,
+    typesParticipation: {},
+  });
   const [chartData, setChartData] = useState([]);
   const [pieData, setPieData] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
@@ -68,15 +78,36 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadDashboard() {
       try {
-        const [actRes, partRes] = await Promise.all([
+        const today = new Date().toISOString().slice(0, 10);
+        const [actRes, partRes, visCount, aboRes, caisseRes] = await Promise.all([
           supabase.from('activities').select('id', { count: 'exact', head: true }),
-          supabase.from('participations').select('nom_complet, montant, type_participant, statut_paiement, created_at, activities(nom)').order('created_at', { ascending: false }).limit(100),
+          supabase.from('participations').select('nom_complet, montant, type_participant, statut_paiement, created_at, encaissement_type, activities(nom)').order('created_at', { ascending: false }).limit(500),
+          supabase.from('visitors').select('id', { count: 'exact', head: true }),
+          supabase.from('abonnements').select('id', { count: 'exact', head: true }).eq('statut', 'actif').then((r) => r).catch(() => ({ count: 0 })),
+          supabase.from('cash_ledger').select('sens, montant_fc, montant_usd, jour').eq('jour', today).then((r) => r).catch(() => ({ data: [] })),
         ]);
         const participations = partRes.data || [];
         const totalEncaisse = participations.reduce((s, p) => s + Number(p.montant), 0);
         const etudiants = participations.filter((p) => p.type_participant === 'etudiant').length;
         const visiteurs = participations.filter((p) => p.type_participant === 'visiteur').length;
-        const today = new Date().toISOString().slice(0, 10);
+        const visiteursFiches = visCount.count ?? 0;
+        const abonnementsActifs = aboRes.count ?? 0;
+        const typesParticipation = {};
+        participations.forEach((p) => {
+          const k = p.encaissement_type || 'inscription_activite';
+          typesParticipation[k] = (typesParticipation[k] || 0) + 1;
+        });
+        let caisseJourFc = 0;
+        let caisseJourUsd = 0;
+        (caisseRes.data || []).forEach((l) => {
+          if (l.sens === 'encaissement') {
+            caisseJourFc += Number(l.montant_fc) || 0;
+            caisseJourUsd += Number(l.montant_usd) || 0;
+          } else {
+            caisseJourFc -= Number(l.montant_fc) || 0;
+            caisseJourUsd -= Number(l.montant_usd) || 0;
+          }
+        });
         const todayTotal = participations.filter((p) => p.created_at?.slice(0, 10) === today).reduce((s, p) => s + Number(p.montant), 0);
         const enAttente = participations.filter((p) => p.statut_paiement === 'en_attente').length;
         const byMonth = {};
@@ -91,7 +122,17 @@ export default function Dashboard() {
           { name: 'Visiteurs', value: visiteurs, color: PIE_COLORS[1] },
         ].filter((d) => d.value > 0);
         if (pieChartData.length === 0) pieChartData = [{ name: 'Aucune donnée', value: 1, color: '#e2e8f0' }];
-        setStats({ activites: actRes.count || 0, totalEncaisse, etudiants, visiteurs });
+        setStats({
+          activites: actRes.count || 0,
+          totalEncaisse,
+          etudiants,
+          visiteurs,
+          visiteursFiches,
+          abonnementsActifs,
+          caisseJourFc,
+          caisseJourUsd,
+          typesParticipation,
+        });
         setTodayEncaisse(todayTotal);
         setEnAttenteCount(enAttente);
         setChartData(barChart);
@@ -141,10 +182,13 @@ export default function Dashboard() {
 
   const hasSearchResults = searchResults.activities.length > 0 || searchResults.students.length > 0;
   const cards = [
-    { label: "Aujourd'hui", value: todayEncaisse.toLocaleString() + ' FC', sublabel: 'encaissé', Icon: DollarSign, color: CARD_COLORS[1], href: '/paiements' },
-    { label: 'Total activités', value: stats.activites, sublabel: null, Icon: CalendarDays, color: CARD_COLORS[0], href: '/admin/activites' },
-    { label: 'Participants', value: stats.etudiants + stats.visiteurs, sublabel: `${stats.etudiants} étudiants, ${stats.visiteurs} visiteurs`, Icon: Users, color: CARD_COLORS[2], href: null },
-    { label: 'Total encaissé', value: stats.totalEncaisse.toLocaleString() + ' FC', sublabel: null, Icon: DollarSign, color: CARD_COLORS[3], href: '/paiements' },
+    { label: "Aujourd'hui (inscriptions)", value: todayEncaisse.toLocaleString() + ' FC', sublabel: 'via QR / participations', Icon: DollarSign, color: CARD_COLORS[1], href: '/admin/paiements' },
+    { label: 'Visiteurs (fiches)', value: stats.visiteursFiches, sublabel: 'registre visiteurs', Icon: Users, color: CARD_COLORS[2], href: '/admin/visiteurs' },
+    { label: 'Abonnements actifs', value: stats.abonnementsActifs, sublabel: 'comptes actifs', Icon: CalendarDays, color: CARD_COLORS[0], href: '/admin/abonner' },
+    { label: 'Caisse du jour', value: `${stats.caisseJourFc.toLocaleString()} FC`, sublabel: stats.caisseJourUsd ? `${stats.caisseJourUsd.toLocaleString()} USD (net)` : 'Facturation & caisse', Icon: DollarSign, color: CARD_COLORS[3], href: '/admin/facturation' },
+    { label: 'Total activités', value: stats.activites, sublabel: 'activités créées', Icon: CalendarDays, color: '#991b1b', href: '/admin/activites' },
+    { label: 'Participants (inscr.)', value: stats.etudiants + stats.visiteurs, sublabel: `${stats.etudiants} ét., ${stats.visiteurs} vis.`, Icon: Users, color: CARD_COLORS[2], href: '/admin/paiements' },
+    { label: 'Total encaissé (inscr.)', value: stats.totalEncaisse.toLocaleString() + ' FC', sublabel: null, Icon: DollarSign, color: CARD_COLORS[3], href: '/admin/paiements' },
   ];
 
   if (loading) {

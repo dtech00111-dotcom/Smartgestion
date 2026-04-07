@@ -15,6 +15,7 @@ const PATH_LABELS = {
   'types-activite': "Types d'activité",
   reservations: 'Réservations',
   paiements: 'Paiements',
+  facturation: 'Facturation & caisse',
   exports: 'Exports',
   parametres: 'Paramètres',
   'audit-logs': 'Audit Logs',

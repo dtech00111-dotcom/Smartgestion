@@ -1,0 +1,56 @@
+{
+  "name": "smart-gestion-electron",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Executable Windows Smart Gestion (Electron + frontend + backend Express)",
+  "author": "UNILU",
+  "main": "main.cjs",
+  "scripts": {
+    "build:frontend": "npm run build --prefix ../frontend",
+    "install:backend": "npm install --omit=dev --prefix ../backend",
+    "prepare:pack": "npm run build:frontend && npm run install:backend",
+    "dev": "npm run prepare:pack && electron .",
+    "dist": "npm run prepare:pack && electron-builder --win portable --publish never",
+    "dist:setup": "npm run prepare:pack && electron-builder --win nsis --publish never",
+    "dist:all": "npm run prepare:pack && electron-builder --win portable nsis --publish never"
+  },
+  "build": {
+    "extends": null,
+    "appId": "cd.unilu.smartgestion",
+    "productName": "Smart Gestion",
+    "copyright": "UNILU",
+    "directories": {
+      "output": "release"
+    },
+    "files": ["main.cjs", "package.json"],
+    "extraResources": [
+      {
+        "from": "../frontend/public/logo-salle-numerique.png",
+        "to": "."
+      },
+      {
+        "from": "../frontend/build",
+        "to": "frontend-build",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": ["index.js", "package.json", "package-lock.json", "node_modules/**"]
+      }
+    ],
+    "win": {
+      "target": ["portable", "nsis"],
+      "icon": "../frontend/public/logo-salle-numerique.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^34.0.2",
+    "electron-builder": "^25.1.8"
+  }
+}

@@ -50,6 +50,8 @@ export default function Abonner() {
     type_abonnement: 'mensuel',
     date_activation: new Date().toISOString().slice(0, 16),
     activer_maintenant: true,
+    montant_total_fc: '',
+    tarif_mensuel_reference_fc: '',
   });
 
   const [, setTick] = useState(0);
@@ -80,8 +82,10 @@ export default function Abonner() {
       .from('abonnements')
       .select(`
         id, type_abonne, type_abonnement, date_activation, date_expiration, statut,
+        montant_total_fc, tarif_mensuel_reference_fc,
         students(id, nom_complet, matricule, promotions(nom, faculties(nom))),
-        visitors(id, nom_complet, institution)
+        visitors(id, nom_complet, institution),
+        subscription_types(nom, duree_jours)
       `)
       .order('date_expiration', { ascending: true })
       .then((r) => r)
@@ -100,11 +104,15 @@ export default function Abonner() {
     try {
       const activerMaintenant = form.activer_maintenant;
       const dateActivation = activerMaintenant ? new Date(form.date_activation || Date.now()).toISOString() : null;
+      const mFc = form.montant_total_fc !== '' ? parseFloat(String(form.montant_total_fc).replace(',', '.')) : null;
+      const tFc = form.tarif_mensuel_reference_fc !== '' ? parseFloat(String(form.tarif_mensuel_reference_fc).replace(',', '.')) : null;
       const payloadAbonnement = {
         type_abonne: typeAbonne,
         type_abonnement: form.type_abonnement,
         statut: activerMaintenant ? 'actif' : 'en_attente',
         date_activation: dateActivation,
+        montant_total_fc: Number.isFinite(mFc) ? mFc : null,
+        tarif_mensuel_reference_fc: Number.isFinite(tFc) && tFc > 0 ? tFc : null,
       };
       if (typeAbonne === 'etudiant') {
         const { data: studentData, error: errStu } = await supabase
@@ -161,6 +169,8 @@ export default function Abonner() {
         type_abonnement: 'mensuel',
         date_activation: new Date().toISOString().slice(0, 16),
         activer_maintenant: true,
+        montant_total_fc: '',
+        tarif_mensuel_reference_fc: '',
       });
       setView('menu');
     } catch (err) {
@@ -202,7 +212,16 @@ export default function Abonner() {
       type_abonnement: 'mensuel',
       date_activation: new Date().toISOString().slice(0, 16),
       activer_maintenant: true,
+      montant_total_fc: '',
+      tarif_mensuel_reference_fc: '',
     });
+  }
+
+  function moisDepuisMontant(a) {
+    const m = a?.montant_total_fc != null ? Number(a.montant_total_fc) : null;
+    const t = a?.tarif_mensuel_reference_fc != null ? Number(a.tarif_mensuel_reference_fc) : null;
+    if (m == null || !Number.isFinite(m) || t == null || !Number.isFinite(t) || t <= 0) return '—';
+    return `${Math.floor(m / t)} mois (≈)`;
   }
 
   const autreOptions = [
@@ -451,6 +470,35 @@ export default function Abonner() {
                 </div>
               )}
 
+              <div className="col-12 border-top pt-3 mt-2">
+                <h6 className="text-muted small text-uppercase mb-2">Montants (FC)</h6>
+                <p className="small text-muted mb-3">Le tarif mensuel de référence permet d&apos;afficher le nombre de mois couverts par le montant total.</p>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Montant total payé (FC)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.montant_total_fc}
+                  onChange={(e) => setForm({ ...form, montant_total_fc: e.target.value })}
+                  className="form-control"
+                  placeholder="ex: 150000"
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Tarif mensuel de référence (FC)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.tarif_mensuel_reference_fc}
+                  onChange={(e) => setForm({ ...form, tarif_mensuel_reference_fc: e.target.value })}
+                  className="form-control"
+                  placeholder="ex: 50000 pour 1 mois"
+                />
+              </div>
+
               <div className="col-12 d-flex gap-2 justify-content-end pt-2">
                 <button type="button" onClick={() => setView('menu')} className="btn btn-outline-secondary">
                   Annuler
@@ -536,12 +584,13 @@ export default function Abonner() {
                 <table className="table table-hover align-middle mb-0">
                   <thead className="table-light">
                     <tr>
-                      <th>Abonné</th>
+                      <th>Nom complet</th>
                       <th>Type</th>
-                      <th>Abonnement</th>
-                      <th>Activation</th>
-                      <th>Expiration</th>
-                      <th>Statut</th>
+                      <th>Formule</th>
+                      <th>Début</th>
+                      <th>Fin</th>
+                      <th>Montant / mois</th>
+                      <th>Actif</th>
                       <th className="text-end">Actions</th>
                     </tr>
                   </thead>
@@ -555,6 +604,8 @@ export default function Abonner() {
                         : a.visitors?.institution || '-';
                       const countdown = formatCountdown(a.date_expiration);
                       const isEnAttente = a.statut === 'en_attente';
+                      const actifDansLeTemps = !isEnAttente && a.statut === 'actif' && a.date_expiration && !countdown.expired;
+                      const formuleNom = a.subscription_types?.nom || a.type_abonnement?.replace(/_/g, ' ') || '-';
                       return (
                         <tr key={a.id}>
                           <td>
@@ -566,13 +617,23 @@ export default function Abonner() {
                               {a.type_abonne === 'etudiant' ? 'Étudiant' : 'Visiteur'}
                             </span>
                           </td>
-                          <td>{a.type_abonnement?.replace('_', ' ') || '-'}</td>
-                          <td className="small">{a.date_activation ? new Date(a.date_activation).toLocaleDateString('fr-FR') : '-'}</td>
-                          <td className="small">{a.date_expiration ? new Date(a.date_expiration).toLocaleDateString('fr-FR') : '-'}</td>
+                          <td className="small">{formuleNom}</td>
+                          <td className="small">{a.date_activation ? new Date(a.date_activation).toLocaleString('fr-FR') : '-'}</td>
+                          <td className="small">{a.date_expiration ? new Date(a.date_expiration).toLocaleString('fr-FR') : '-'}</td>
+                          <td className="small">
+                            {a.montant_total_fc != null ? `${Number(a.montant_total_fc).toLocaleString()} FC` : '—'}
+                            <br />
+                            <span className="text-muted">{moisDepuisMontant(a)}</span>
+                          </td>
                           <td>
-                            <span className={`badge ${countdown.expired ? 'bg-danger' : isEnAttente ? 'bg-warning text-dark' : 'bg-success'}`}>
-                              {countdown.text}
-                            </span>
+                            <div className="d-flex flex-column gap-1">
+                              {actifDansLeTemps && <span className="badge bg-success">Actif</span>}
+                              {isEnAttente && <span className="badge bg-warning text-dark">En attente</span>}
+                              {countdown.expired && !isEnAttente && <span className="badge bg-danger">Expiré</span>}
+                              <span className={`badge ${countdown.expired ? 'bg-secondary' : 'bg-light text-dark'}`}>
+                                {countdown.text}
+                              </span>
+                            </div>
                           </td>
                           <td className="text-end">
                             {isEnAttente && (
