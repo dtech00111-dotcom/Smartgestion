@@ -4,6 +4,7 @@ import { FileSpreadsheet, FileText } from 'lucide-react';
 import { exportActivityToExcel, exportActivityToPDF, exportActivityToExcelCotation, exportActivityToPDFCotation } from '../lib/exports';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { activityScheduleLine } from '../lib/activityTime';
 
 export default function Exports() {
   const { adminProfile } = useAuth();
@@ -16,7 +17,7 @@ export default function Exports() {
   useEffect(() => {
     supabase
       .from('activities')
-      .select('id, nom, date_debut, heure_debut, duree_minutes, activity_types(nom)')
+      .select('id, nom, date_debut, heure_debut, heure_fin, duree_minutes, activity_types(nom)')
       .order('date_debut', { ascending: false })
       .then(({ data }) => {
         setActivities(data || []);
@@ -169,7 +170,7 @@ export default function Exports() {
               <div className="mb-6 space-y-1 text-sm text-slate-700">
                 <p><span className="font-medium text-slate-500">Activité :</span> {activity.nom}</p>
                 <p><span className="font-medium text-slate-500">Type :</span> {activity.activity_types?.nom || '-'}</p>
-                <p><span className="font-medium text-slate-500">Date :</span> {activity.date_debut} • {activity.heure_debut} • {activity.duree_minutes} min</p>
+                <p><span className="font-medium text-slate-500">Date :</span> {activity.date_debut} • {activityScheduleLine(activity)}</p>
               </div>
             )}
 

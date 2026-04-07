@@ -10,6 +10,7 @@ import { exportActivityToExcel, exportActivityToPDF, exportActivityToExcelCotati
 import { getRegistrationUrl } from '../lib/registrationUrl';
 import { getReservationUrl, getReservationCalendarUrl } from '../lib/reservationUrl';
 import toast from 'react-hot-toast';
+import { activityScheduleLine } from '../lib/activityTime';
 
 const STATUT_LABEL = { en_attente: 'En attente', paye: 'Payé', valide: 'Validé' };
 const STATUT_CLASS = {
@@ -244,7 +245,7 @@ export default function ActiviteDetail() {
               </p>
             )}
             <p className="text-slate-600 text-sm mt-2">
-              {activity.date_debut} • {activity.heure_debut} • {activity.duree_minutes} min
+              {activity.date_debut} • {activityScheduleLine(activity)}
             </p>
             {capacite != null && (
               <p className={`text-sm mt-1 font-medium ${atCapacity ? 'text-amber-600' : 'text-slate-600'}`}>

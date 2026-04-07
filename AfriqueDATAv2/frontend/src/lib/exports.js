@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { registerNotoSansForPdf } from './pdfUtf8Font';
+import { activityScheduleLine } from './activityTime';
 
 const DEVISE_LABEL = 'FC';
 const DEVISE_LIBELLE = 'Franc congolais (FC)';
@@ -61,11 +62,7 @@ export async function exportActivityToPDF(activity, participations, adminName = 
   doc.setFontSize(9);
   doc.text(`Activité : ${activity.nom || ''}`, 14, 38);
   doc.text(`Type : ${activity.activity_types?.nom || '-'}`, 14, 43);
-  doc.text(
-    `Date : ${activity.date_debut} • Heure : ${activity.heure_debut || '-'} • Durée : ${activity.duree_minutes ?? '-'} min`,
-    14,
-    48
-  );
+  doc.text(`Date : ${activity.date_debut} • Créneau : ${activityScheduleLine(activity)}`, 14, 48);
 
   const headers = [[`N°`, `Nom complet`, `Faculté`, `Promotion`, `Montant (${DEVISE_LABEL})`]];
   const rows = participations.map((p, i) => [
@@ -178,8 +175,7 @@ export function exportActivityToExcel(activity, participations) {
     [`Nom activité : ${activity.nom}`],
     [`Type : ${typeNom}`],
     [`Date : ${activity.date_debut}`],
-    [`Heure : ${activity.heure_debut ?? '-'}`],
-    [`Durée : ${activity.duree_minutes ?? '-'} min`],
+    [`Créneau : ${activityScheduleLine(activity)}`],
     [],
     ['N°', 'Nom complet', 'Faculté', 'Promotion', `Montant (${DEVISE_LABEL})`],
   ];

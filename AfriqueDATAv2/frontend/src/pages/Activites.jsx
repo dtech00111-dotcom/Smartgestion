@@ -6,6 +6,7 @@ import { getRegistrationUrl } from '../lib/registrationUrl';
 import { Plus, ChevronRight, Copy, Pencil, Trash2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
+import { addMinutesToTime, inferHeureFinFromActivity, minutesBetweenTimes, activityScheduleLine } from '../lib/activityTime';
 
 export default function Activites() {
   const location = useLocation();
@@ -30,7 +31,7 @@ export default function Activites() {
     nom: '',
     date_debut: '',
     heure_debut: '09:00',
-    duree_minutes: 60,
+    heure_fin: '10:00',
     capacite: '',
     prix_default: '',
     notes: '',
@@ -119,12 +120,14 @@ export default function Activites() {
         const preset = COTATIONS_PRESETS.find((p) => p.label === form.cotations_preset);
         if (preset && Array.isArray(preset.value)) cotations = preset.value;
       }
+      const dureeMin = minutesBetweenTimes(form.heure_debut, form.heure_fin);
       const payload = {
         type_id: form.type_id,
         nom: form.nom,
         date_debut: form.date_debut,
         heure_debut: form.heure_debut,
-        duree_minutes: parseInt(form.duree_minutes) || 60,
+        heure_fin: form.heure_fin,
+        duree_minutes: dureeMin,
         capacite: form.capacite ? parseInt(form.capacite) : null,
         prix_default: form.prix_default ? parseFloat(form.prix_default) : 0,
         notes: form.notes?.trim() || null,
@@ -147,7 +150,7 @@ export default function Activites() {
         toast.success('Activité créée ! QR Code généré.');
         setModal({ open: true, mode: 'qr', item: data });
       }
-      setForm({ type_id: '', nom: '', date_debut: '', heure_debut: '09:00', duree_minutes: 60, capacite: '', prix_default: '', notes: '', cotations_preset: '', cotations_personnalise: '', faculty_id: '', department_id: '', promotion_id: '', formateur_id: '' });
+      setForm({ type_id: '', nom: '', date_debut: '', heure_debut: '09:00', heure_fin: '10:00', capacite: '', prix_default: '', notes: '', cotations_preset: '', cotations_personnalise: '', faculty_id: '', department_id: '', promotion_id: '', formateur_id: '' });
       loadData();
     } catch (err) {
       toast.error(err.message || 'Erreur');
@@ -160,7 +163,7 @@ export default function Activites() {
       nom: '',
       date_debut: new Date().toISOString().slice(0, 10),
       heure_debut: '09:00',
-      duree_minutes: 60,
+      heure_fin: addMinutesToTime('09:00', 60),
       capacite: '',
       prix_default: '',
       notes: '',
@@ -190,7 +193,7 @@ export default function Activites() {
       nom: a.nom,
       date_debut: a.date_debut || '',
       heure_debut: a.heure_debut || '09:00',
-      duree_minutes: a.duree_minutes || 60,
+      heure_fin: inferHeureFinFromActivity(a),
       capacite: a.capacite ? String(a.capacite) : '',
       prix_default: a.prix_default ? String(a.prix_default) : '',
       notes: a.notes || '',
@@ -252,7 +255,7 @@ export default function Activites() {
                 <div className="min-w-0 flex-1 pr-8">
                   <h3 className="font-semibold text-slate-800 truncate">{a.nom}</h3>
                   <p className="text-sm text-slate-500 mt-0.5">{a.activity_types?.nom || '-'}{a.promotions && ` • ${a.promotions.nom}`}</p>
-                  <p className="text-sm text-slate-600 mt-2">{a.date_debut} • {a.heure_debut}</p>
+                  <p className="text-sm text-slate-600 mt-2">{a.date_debut} • {activityScheduleLine(a)}</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-primary-600 flex-shrink-0 absolute top-5 right-5" />
               </div>
@@ -397,7 +400,7 @@ export default function Activites() {
               </div>
               <div className="row g-2">
                 <div className="col-6">
-                  <Form.Label className="fw-medium mb-2">Heure</Form.Label>
+                  <Form.Label className="fw-medium mb-2">Heure de début</Form.Label>
                   <input
                     type="time"
                     value={form.heure_debut}
@@ -406,15 +409,15 @@ export default function Activites() {
                   />
                 </div>
                 <div className="col-6">
-                  <Form.Label className="fw-medium mb-2">Durée (min)</Form.Label>
+                  <Form.Label className="fw-medium mb-2">Heure de fin</Form.Label>
                   <input
-                    type="number"
-                    value={form.duree_minutes}
-                    onChange={(e) => setForm({ ...form, duree_minutes: e.target.value })}
-                    min={1}
+                    type="time"
+                    value={form.heure_fin}
+                    onChange={(e) => setForm({ ...form, heure_fin: e.target.value })}
                     className="input-field"
                   />
                 </div>
+                <p className="col-12 text-xs text-slate-500 mb-0">La durée enregistrée est déduite automatiquement (si la fin est avant le début, elle est prise le lendemain).</p>
                 <div className="col-6">
                   <Form.Label className="fw-medium mb-2">Capacité max</Form.Label>
                   <input

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { CheckCircle } from 'lucide-react';
+import { activityScheduleLine, sliceTime } from '../lib/activityTime';
 
 export default function ReserveForm() {
   const { activityId } = useParams();
@@ -37,6 +38,9 @@ export default function ReserveForm() {
     if (activity?.heure_debut) {
       const [h, m] = String(activity.heure_debut).slice(0, 5).split(':');
       setForm((f) => ({ ...f, desired_time_start: `${h.padStart(2, '0')}:${m || '00'}` }));
+    }
+    if (activity?.heure_fin) {
+      setForm((f) => ({ ...f, desired_time_end: sliceTime(activity.heure_fin) }));
     }
     if (activity?.duree_minutes) {
       setForm((f) => ({ ...f, duration_minutes: String(activity.duree_minutes) }));
@@ -203,7 +207,7 @@ export default function ReserveForm() {
             <p className="text-xs text-slate-500 uppercase tracking-wide">Activité</p>
             <p className="font-semibold text-slate-800 mt-1">{activity.nom}</p>
             <p className="text-sm text-slate-500 mt-0.5">
-              {activity.activity_types?.nom} • {activity.date_debut} {activity.heure_debut}
+              {activity.activity_types?.nom} • {activity.date_debut} • {activityScheduleLine(activity)}
             </p>
             <Link
               to="/reserve"

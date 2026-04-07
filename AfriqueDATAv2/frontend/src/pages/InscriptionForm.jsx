@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { CheckCircle } from 'lucide-react';
+import { activityScheduleLine } from '../lib/activityTime';
 
 export default function InscriptionForm() {
   const { activityId } = useParams();
@@ -164,7 +165,7 @@ export default function InscriptionForm() {
             <p className="text-xs text-slate-500 uppercase tracking-wide">Activité</p>
             <p className="font-semibold text-slate-800 mt-1">{activity.nom}</p>
             <p className="text-sm text-slate-500 mt-0.5">
-              {activity.activity_types?.nom} • {activity.date_debut} {activity.heure_debut}
+              {activity.activity_types?.nom} • {activity.date_debut} • {activityScheduleLine(activity)}
             </p>
             {capacite != null && (
               <p className={`text-sm mt-2 font-medium ${isFull ? 'text-amber-600' : 'text-slate-600'}`}>

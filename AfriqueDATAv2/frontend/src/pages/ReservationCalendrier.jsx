@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { activityScheduleLine } from '../lib/activityTime';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -54,7 +55,7 @@ export default function ReservationCalendrier() {
 
       let query = supabase
         .from('activities')
-        .select('id, nom, date_debut, heure_debut, duree_minutes, lieu, activity_types(nom), formateurs(nom_complet, email)')
+        .select('id, nom, date_debut, heure_debut, heure_fin, duree_minutes, lieu, activity_types(nom), formateurs(nom_complet, email)')
         .eq('actif', true)
         .gte('date_debut', startOfMonth)
         .lte('date_debut', endOfMonth);
@@ -278,7 +279,7 @@ export default function ReservationCalendrier() {
                     {a.heure_debut && (
                       <span className="flex items-center gap-1">
                         <Clock size={14} />
-                        {String(a.heure_debut).slice(0, 5)}
+                        {activityScheduleLine(a)}
                       </span>
                     )}
                     {a.lieu && (

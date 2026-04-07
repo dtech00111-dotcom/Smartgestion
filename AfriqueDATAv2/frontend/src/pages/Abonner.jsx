@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { UserPlus, MoreHorizontal, GraduationCap, UserCheck, ChevronRight, CalendarDays, Clock, List, Play } from 'lucide-react';
+import { UserPlus, MoreHorizontal, GraduationCap, UserCheck, ChevronRight, CalendarDays, Clock, List, Play, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const TYPES_ABONNEMENT = [
@@ -31,8 +31,88 @@ function formatCountdown(dateExpiration) {
   return { text: `${diffSec} s restantes`, expired: false };
 }
 
+const SUBSCRIPTION_VISUAL_THEMES = {
+  mensuel: { accent: '#2563eb', softBg: 'linear-gradient(145deg, #eff6ff 0%, #ecfeff 100%)', border: 'rgba(37,99,235,0.22)' },
+  '2_mois': { accent: '#0891b2', softBg: 'linear-gradient(145deg, #ecfeff 0%, #f0fdf4 100%)', border: 'rgba(8,145,178,0.22)' },
+  '3_mois': { accent: '#0d9488', softBg: 'linear-gradient(145deg, #f0fdfa 0%, #ecfdf5 100%)', border: 'rgba(13,148,136,0.22)' },
+  '6_mois': { accent: '#7c3aed', softBg: 'linear-gradient(145deg, #f5f3ff 0%, #fdf4ff 100%)', border: 'rgba(124,58,237,0.22)' },
+  annuel: { accent: '#6d28d9', softBg: 'linear-gradient(145deg, #ede9fe 0%, #fce7f3 100%)', border: 'rgba(109,40,217,0.28)' },
+};
+
+function themeForSubscription(typeId) {
+  return SUBSCRIPTION_VISUAL_THEMES[typeId] || { accent: '#475569', softBg: 'linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%)', border: 'rgba(71,85,105,0.18)' };
+}
+
+function getCountdownSegments(dateExpiration) {
+  if (!dateExpiration) return null;
+  const exp = new Date(dateExpiration);
+  const diffMs = exp - Date.now();
+  if (diffMs <= 0) {
+    return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }
+  const sec = Math.floor(diffMs / 1000);
+  return {
+    expired: false,
+    days: Math.floor(sec / 86400),
+    hours: Math.floor((sec % 86400) / 3600),
+    minutes: Math.floor((sec % 3600) / 60),
+    seconds: sec % 60,
+  };
+}
+
+function ringProgress(dateActivation, dateExpiration) {
+  const end = dateExpiration ? new Date(dateExpiration).getTime() : 0;
+  const now = Date.now();
+  if (!end || now >= end) return 0;
+  const start = dateActivation ? new Date(dateActivation).getTime() : null;
+  if (start != null && end > start) {
+    return Math.max(0, Math.min(1, (end - now) / (end - start)));
+  }
+  return Math.min(1, (end - now) / (30 * 24 * 60 * 60 * 1000));
+}
+
+function shortCountdownLabel(seg) {
+  if (!seg || seg.expired) return '—';
+  if (seg.days > 0) return `${seg.days}j`;
+  if (seg.hours > 0) return `${seg.hours}h`;
+  if (seg.minutes > 0) return `${seg.minutes}m`;
+  return `${seg.seconds}s`;
+}
+
+function CountdownRingVisual({ progress, accent, size = 72, children }) {
+  const stroke = Math.max(3, Math.round(size / 14));
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const p = progress == null ? 1 : Math.min(1, Math.max(0, progress));
+  const offset = c * (1 - p);
+  const cx = size / 2;
+  return (
+    <div className="position-relative d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="position-absolute top-0 start-0" aria-hidden>
+        <circle cx={cx} cy={cx} r={r} fill="none" stroke="rgba(148,163,184,0.35)" strokeWidth={stroke} />
+        <circle
+          cx={cx}
+          cy={cx}
+          r={r}
+          fill="none"
+          stroke={accent}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+          transform={`rotate(-90 ${cx} ${cx})`}
+          style={{ transition: 'stroke-dashoffset 0.35s ease' }}
+        />
+      </svg>
+      <div className="position-relative text-center lh-1 px-1" style={{ zIndex: 1 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function Abonner() {
-  const [view, setView] = useState('menu'); // 'menu' | 'nouveau' | 'autre' | 'liste'
+  const [view, setView] = useState('menu'); // 'menu' | 'nouveau' | 'autre' | 'liste' | 'actifs'
   const [typeAbonne, setTypeAbonne] = useState('etudiant'); // 'etudiant' | 'visiteur'
   const [facultes, setFacultes] = useState([]);
   const [promotions, setPromotions] = useState([]);
@@ -54,17 +134,26 @@ export default function Abonner() {
     tarif_mensuel_reference_fc: '',
   });
 
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     loadRefs();
   }, []);
 
   useEffect(() => {
-    if (view !== 'liste' || abonnements.length === 0) return;
+    if ((view !== 'liste' && view !== 'actifs') || abonnements.length === 0) return;
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, [view, abonnements.length]);
+
+  const abonnesActifs = useMemo(() => {
+    void tick;
+    const now = Date.now();
+    return (abonnements || []).filter((a) => {
+      if (a.statut !== 'actif' || !a.date_expiration) return false;
+      return new Date(a.date_expiration).getTime() > now;
+    });
+  }, [abonnements, tick]);
 
   async function loadRefs() {
     const [facRes, promRes, typesRes] = await Promise.all([
@@ -172,7 +261,8 @@ export default function Abonner() {
         montant_total_fc: '',
         tarif_mensuel_reference_fc: '',
       });
-      setView('menu');
+      await loadAbonnements();
+      setView(activerMaintenant ? 'actifs' : 'menu');
     } catch (err) {
       toast.error(err.message || 'Erreur lors de l\'abonnement');
     } finally {
@@ -192,7 +282,8 @@ export default function Abonner() {
         .eq('id', abonnement.id);
       if (error) throw error;
       toast.success('Abonnement activé – le compte à rebours a démarré');
-      loadAbonnements();
+      await loadAbonnements();
+      setView('actifs');
     } catch (err) {
       toast.error(err.message || 'Erreur lors de l\'activation');
     }
@@ -225,6 +316,7 @@ export default function Abonner() {
   }
 
   const autreOptions = [
+    { label: 'Tableau abonnés actifs', action: () => { loadAbonnements(); setView('actifs'); }, Icon: Users },
     { label: 'Liste des abonnements', action: () => { loadAbonnements(); setView('liste'); }, Icon: List },
     { label: 'Liste des étudiants', path: '/admin/etudiants', Icon: GraduationCap },
     { label: 'Liste des visiteurs', path: '/admin/visiteurs', Icon: UserCheck },
@@ -563,6 +655,110 @@ export default function Abonner() {
         </div>
       )}
 
+      {view === 'actifs' && (
+        <div className="card shadow-sm border-0 overflow-hidden">
+          <div
+            className="card-header py-4 text-white border-0"
+            style={{ background: 'linear-gradient(120deg, #1e3a5f 0%, #2563eb 45%, #0891b2 100%)' }}
+          >
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div>
+                <h5 className="mb-1 fw-bold d-flex align-items-center gap-2">
+                  <Users size={22} />
+                  Abonnés actifs
+                </h5>
+                <p className="mb-0 small opacity-90">Compte à rebours en temps réel jusqu’à l’expiration — style selon la formule</p>
+              </div>
+              <button type="button" onClick={() => setView('autre')} className="btn btn-sm btn-light">
+                Retour
+              </button>
+            </div>
+          </div>
+          <div className="card-body bg-light">
+            {abonnesActifs.length === 0 ? (
+              <p className="text-muted text-center py-5 mb-0">
+                Aucun abonnement actif pour l’instant. Enregistrez un abonné avec activation immédiate pour le voir ici.
+              </p>
+            ) : (
+              <div className="row g-4">
+                {abonnesActifs.map((a) => {
+                  const nom = a.type_abonne === 'etudiant'
+                    ? a.students?.nom_complet
+                    : a.visitors?.nom_complet;
+                  const detail = a.type_abonne === 'etudiant'
+                    ? a.students?.promotions?.nom || a.students?.matricule
+                    : a.visitors?.institution || '-';
+                  const formuleNom = a.subscription_types?.nom || a.type_abonnement?.replace(/_/g, ' ') || '-';
+                  const theme = themeForSubscription(a.type_abonnement);
+                  const seg = getCountdownSegments(a.date_expiration);
+                  const prog = ringProgress(a.date_activation, a.date_expiration);
+                  const initial = (nom || '?').trim().charAt(0).toUpperCase();
+                  return (
+                    <div key={a.id} className="col-md-6 col-xl-4">
+                      <div
+                        className="rounded-4 border p-4 h-100 shadow-sm position-relative"
+                        style={{ background: theme.softBg, borderColor: theme.border }}
+                      >
+                        <div className="d-flex gap-3 align-items-start">
+                          <div
+                            className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white flex-shrink-0"
+                            style={{ width: 48, height: 48, background: theme.accent, fontSize: '1.1rem' }}
+                          >
+                            {initial}
+                          </div>
+                          <div className="min-w-0 flex-grow-1">
+                            <div className="fw-semibold text-dark text-truncate" title={nom}>{nom || '-'}</div>
+                            <div className="small text-muted text-truncate">{detail}</div>
+                            <div className="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                              <span className={`badge ${a.type_abonne === 'etudiant' ? 'bg-primary' : 'bg-info'}`}>
+                                {a.type_abonne === 'etudiant' ? 'Étudiant' : 'Visiteur'}
+                              </span>
+                              <span
+                                className="badge border fw-medium"
+                                style={{ color: theme.accent, borderColor: theme.border, background: 'rgba(255,255,255,0.85)' }}
+                              >
+                                {formuleNom}
+                              </span>
+                            </div>
+                          </div>
+                          <CountdownRingVisual progress={prog} accent={theme.accent} size={86}>
+                            <span className="fw-bold text-dark" style={{ fontSize: '0.8rem' }}>{shortCountdownLabel(seg)}</span>
+                          </CountdownRingVisual>
+                        </div>
+                        {seg && !seg.expired && (
+                          <div className="d-flex gap-2 justify-content-center mt-4 pt-2">
+                            {[
+                              ['J', seg.days],
+                              ['H', seg.hours],
+                              ['M', seg.minutes],
+                              ['S', seg.seconds],
+                            ].map(([label, val]) => (
+                              <div
+                                key={label}
+                                className="rounded-3 text-center border bg-white shadow-sm px-2 py-2"
+                                style={{ minWidth: 52, borderColor: theme.border }}
+                              >
+                                <div className="fw-bold fs-5 tabular-nums" style={{ color: theme.accent }}>
+                                  {String(val).padStart(2, '0')}
+                                </div>
+                                <div className="text-muted text-uppercase" style={{ fontSize: 10, letterSpacing: '0.06em' }}>{label}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className="small text-muted text-center mb-0 mt-3">
+                          Fin : {a.date_expiration ? new Date(a.date_expiration).toLocaleString('fr-FR') : '—'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {view === 'liste' && (
         <div className="card shadow-sm">
           <div className="card-header bg-white py-3 d-flex align-items-center justify-content-between">
@@ -606,11 +802,23 @@ export default function Abonner() {
                       const isEnAttente = a.statut === 'en_attente';
                       const actifDansLeTemps = !isEnAttente && a.statut === 'actif' && a.date_expiration && !countdown.expired;
                       const formuleNom = a.subscription_types?.nom || a.type_abonnement?.replace(/_/g, ' ') || '-';
+                      const theme = themeForSubscription(a.type_abonnement);
+                      const segList = getCountdownSegments(a.date_expiration);
+                      const progList = ringProgress(a.date_activation, a.date_expiration);
                       return (
                         <tr key={a.id}>
                           <td>
-                            <div className="fw-medium">{nom || '-'}</div>
-                            <small className="text-muted">{detail}</small>
+                            <div className="d-flex align-items-center gap-3">
+                              {actifDansLeTemps && (
+                                <CountdownRingVisual progress={progList} accent={theme.accent} size={46}>
+                                  <span className="fw-bold text-dark" style={{ fontSize: '0.65rem' }}>{shortCountdownLabel(segList)}</span>
+                                </CountdownRingVisual>
+                              )}
+                              <div>
+                                <div className="fw-medium">{nom || '-'}</div>
+                                <small className="text-muted">{detail}</small>
+                              </div>
+                            </div>
                           </td>
                           <td>
                             <span className={`badge ${a.type_abonne === 'etudiant' ? 'bg-primary' : 'bg-info'}`}>
