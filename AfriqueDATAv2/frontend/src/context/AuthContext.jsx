@@ -12,18 +12,20 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
-    const SESSION_TIMEOUT_MS = 12000;
+    /** Première tentative : au-delà, on ne considère pas « déconnecté » (évite déconnexion après veille / réseau lent). */
+    const SESSION_FIRST_TRY_MS = 60000;
 
-    function getSessionWithTimeout() {
-      return Promise.race([
-        supabase.auth.getSession(),
-        new Promise((resolve) =>
-          setTimeout(
-            () => resolve({ data: { session: null }, error: { message: 'session_timeout' } }),
-            SESSION_TIMEOUT_MS
-          )
-        ),
-      ]);
+    async function getSessionResilient() {
+      try {
+        return await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('supabase_session_slow')), SESSION_FIRST_TRY_MS)
+          ),
+        ]);
+      } catch {
+        return supabase.auth.getSession();
+      }
     }
 
     async function applySessionFromData(session) {
@@ -44,7 +46,7 @@ export function AuthProvider({ children }) {
 
     async function init() {
       try {
-        const { data: { session } } = await getSessionWithTimeout();
+        const { data: { session } } = await getSessionResilient();
         if (!mounted) return;
         await applySessionFromData(session);
       } catch {
@@ -88,7 +90,7 @@ export function AuthProvider({ children }) {
       setTimeout(async () => {
         if (!mounted) return;
         try {
-          const { data: { session } } = await getSessionWithTimeout();
+          const { data: { session } } = await getSessionResilient();
           await applySessionFromData(session);
         } catch {
           /* ignore */

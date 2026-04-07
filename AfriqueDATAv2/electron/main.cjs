@@ -1,7 +1,7 @@
 /**
  * Smart Gestion — fenêtre Electron + serveur Express intégré (backend + build React).
  */
-const { app, BrowserWindow, Menu, shell, dialog, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, nativeImage, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -14,6 +14,8 @@ const PORT = Number(process.env.SMARTGESTION_PORT) || 17892;
 
 let mainWindow;
 let httpServer;
+/** Identifiants powerSaveBlocker — évite suspension app + veille écran (borne / salle). */
+let powerSaveBlockerIds = [];
 
 function backendRoot() {
   if (app.isPackaged) {
@@ -154,6 +156,15 @@ app.whenReady().then(async () => {
     return;
   }
 
+  try {
+    powerSaveBlockerIds = [
+      powerSaveBlocker.start('prevent-app-suspension'),
+      powerSaveBlocker.start('prevent-display-sleep'),
+    ];
+  } catch (e) {
+    console.warn('powerSaveBlocker:', e);
+  }
+
   Menu.setApplicationMenu(buildMenu());
   mainWindow = createBrowser();
 
@@ -167,6 +178,12 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  powerSaveBlockerIds.forEach((id) => {
+    try {
+      if (powerSaveBlocker.isStarted(id)) powerSaveBlocker.stop(id);
+    } catch (_) {}
+  });
+  powerSaveBlockerIds = [];
   if (httpServer) {
     httpServer.close();
     httpServer = null;

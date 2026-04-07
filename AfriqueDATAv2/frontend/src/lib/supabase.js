@@ -17,7 +17,12 @@ try {
   }
   if (isValidUrl(supabaseUrl) && supabaseAnonKey) {
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { lock: (_name, _acquireTimeout, fn) => fn() },
+      auth: {
+        lock: (_name, _acquireTimeout, fn) => fn(),
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
     });
   } else {
     throw new Error('Config manquante');

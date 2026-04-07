@@ -34,6 +34,7 @@ import FormateurDashboard from './pages/FormateurDashboard';
 import FormateurLogin from './pages/FormateurLogin';
 import ErrorBoundary from './components/ErrorBoundary';
 import SupabaseConfigBanner from './components/SupabaseConfigBanner';
+import KeepAliveSession from './components/KeepAliveSession';
 import './App.css';
 
 function App() {
@@ -41,6 +42,7 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
       <AuthProvider>
+        <KeepAliveSession />
         <SupabaseConfigBanner />
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
         <Routes>
