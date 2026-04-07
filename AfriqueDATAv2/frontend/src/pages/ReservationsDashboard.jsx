@@ -300,16 +300,21 @@ export default function ReservationsDashboard() {
   }
 
   function exportCSV() {
+    const esc = (v) => {
+      const s = String(v ?? '');
+      if (/[;\r\n"]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
     const headers = ['Date', 'Événement', 'Formateur', 'Participants', 'Frais (FC)', 'Statut'];
     const rows = filtered.map((r) => [
       r.desired_date || r.activities?.date_debut || '',
       r.activities?.nom || '',
       r.activities?.formateurs?.nom_complet || '',
       r.full_name || '',
-      r.activities?.prix_default || 0,
+      r.activities?.prix_default ?? '',
       STATUS_CONFIG[r.status]?.label || r.status,
     ]);
-    const csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const csv = [headers.map(esc).join(';'), ...rows.map((r) => r.map(esc).join(';'))].join('\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

@@ -94,6 +94,7 @@ export default function Visiteurs() {
       Institution: v.institution || '',
     }));
     const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Message: 'Aucune fiche' }]);
+    ws['!cols'] = [{ wch: 28 }, { wch: 22 }, { wch: 18 }, { wch: 28 }, { wch: 16 }, { wch: 26 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Visiteurs');
     XLSX.writeFile(wb, `visiteurs_${new Date().toISOString().slice(0, 10)}.xlsx`);

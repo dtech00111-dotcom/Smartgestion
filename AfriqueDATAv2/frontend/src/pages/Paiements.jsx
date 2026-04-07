@@ -101,10 +101,11 @@ export default function Paiements() {
       'Module à apprendre': p.module_formation || '',
       'Début formation': p.date_debut_formation || '',
       Activité: p.activities?.nom || '',
-      Montant_FC: Number(p.montant),
+      'Montant (FC)': Number(p.montant) || 0,
       Statut: p.statut_paiement,
     }));
     const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Message: 'Aucun visiteur inscrit' }]);
+    ws['!cols'] = [{ wch: 26 }, { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 14 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Visiteurs');
     XLSX.writeFile(wb, `participants_visiteurs_${new Date().toISOString().slice(0, 10)}.xlsx`);

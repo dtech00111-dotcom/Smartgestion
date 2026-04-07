@@ -52,13 +52,13 @@ export default function Exports() {
     day: 'numeric',
   });
 
-  function handleExportPDF() {
+  async function handleExportPDF() {
     if (!activity) return;
     try {
-      exportActivityToPDF(activity, participations, adminProfile?.nom_complet || 'Secrétaire');
+      await exportActivityToPDF(activity, participations, adminProfile?.nom_complet || 'Secrétaire');
       toast.success('Rapport secrétaire PDF téléchargé');
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err?.message || 'Erreur export PDF');
     }
   }
 
@@ -72,13 +72,13 @@ export default function Exports() {
     }
   }
 
-  function handleExportPDFCotation() {
+  async function handleExportPDFCotation() {
     if (!activity) return;
     try {
-      exportActivityToPDFCotation(activity, participations, adminProfile?.nom_complet || 'Secrétaire');
+      await exportActivityToPDFCotation(activity, participations, adminProfile?.nom_complet || 'Secrétaire');
       toast.success('Liste cotation PDF téléchargée');
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err?.message || 'Erreur export PDF');
     }
   }
 

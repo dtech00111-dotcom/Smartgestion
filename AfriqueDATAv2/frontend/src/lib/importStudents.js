@@ -126,9 +126,11 @@ export function downloadTemplate() {
   const data = [
     ['Matricule', 'Nom complet'],
     ['UNI12345', 'Jean Dupont'],
-    ['UNI12346', 'Marie Martin'],
+    ['UNI12346', 'Marie Kanyinda'],
+    ['UNI12347', 'Françoise Tshilombo'],
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{ wch: 14 }, { wch: 36 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Étudiants');
   XLSX.writeFile(wb, 'modele_liste_etudiants.xlsx');
