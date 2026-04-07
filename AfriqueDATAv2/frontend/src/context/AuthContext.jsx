@@ -84,20 +84,25 @@ export function AuthProvider({ children }) {
       }
     );
 
-    // Après réduction de fenêtre (Electron) : getSession peut rester en attente ; on resynchronise au retour visible.
+    // Après réduction / autre app au premier plan : resync session sans bloquer le premier rendu (évite écran blanc figé).
     function onVisibilityChange() {
       if (document.visibilityState !== 'visible' || !mounted) return;
-      setTimeout(async () => {
-        if (!mounted) return;
-        try {
-          const { data: { session } } = await getSessionResilient();
-          await applySessionFromData(session);
-        } catch {
-          /* ignore */
-        } finally {
-          if (mounted) setLoading(false);
-        }
-      }, 120);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(async () => {
+            if (!mounted || document.visibilityState !== 'visible') return;
+            try {
+              const { data: { session } } = await getSessionResilient();
+              if (!mounted) return;
+              await applySessionFromData(session);
+            } catch {
+              /* ignore */
+            } finally {
+              if (mounted) setLoading(false);
+            }
+          }, 200);
+        });
+      });
     }
     document.addEventListener('visibilitychange', onVisibilityChange);
 

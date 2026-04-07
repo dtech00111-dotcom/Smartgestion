@@ -5,9 +5,14 @@ const { app, BrowserWindow, Menu, shell, dialog, nativeImage, powerSaveBlocker }
 const path = require('path');
 const fs = require('fs');
 
-// Évite que Chromium fige l’onglet / le rendu quand la fenêtre est réduite (spinner infini au retour).
+// Évite que Chromium fige le rendu quand la fenêtre est réduite ou qu’une autre app est au premier plan.
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows', 'true');
 app.commandLine.appendSwitch('disable-renderer-backgrounding', 'true');
+app.commandLine.appendSwitch('disable-background-timer-throttling', 'true');
+// Windows : sans ceci, Chromium peut considérer la fenêtre comme « occluse » et geler le compositeur.
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+}
 
 const pkg = require('./package.json');
 const PORT = Number(process.env.SMARTGESTION_PORT) || 17892;
@@ -51,15 +56,38 @@ function windowIcon() {
 
 function triggerRendererRepaint(win) {
   if (!win || win.isDestroyed()) return;
-  win.webContents
-    .executeJavaScript(
-      `requestAnimationFrame(function(){
+  const js = `(function(){
+    try {
+      requestAnimationFrame(function(){
         window.dispatchEvent(new Event('resize'));
-        document.body && (document.body.style.opacity='0.9999');
-        requestAnimationFrame(function(){ document.body && (document.body.style.opacity=''); });
-      });`
-    )
-    .catch(() => {});
+        var b = document.body;
+        if (b) {
+          b.style.transform = 'translateZ(0)';
+          requestAnimationFrame(function(){
+            b.style.transform = '';
+            window.dispatchEvent(new Event('resize'));
+          });
+        }
+        if (document.documentElement) {
+          document.documentElement.style.outline = '1px solid transparent';
+          requestAnimationFrame(function(){
+            document.documentElement.style.outline = '';
+          });
+        }
+      });
+    } catch (e) {}
+  })();`;
+  win.webContents.executeJavaScript(js).catch(() => {});
+}
+
+function scheduleResumeRepaint(win) {
+  if (!win || win.isDestroyed() || win.isMinimized()) return;
+  try {
+    win.webContents.setBackgroundThrottling(false);
+  } catch (_) {
+    /* API absente sur très vieilles versions Electron */
+  }
+  [0, 60, 200, 500].forEach((ms) => setTimeout(() => triggerRendererRepaint(win), ms));
 }
 
 function createBrowser() {
@@ -82,13 +110,21 @@ function createBrowser() {
   win.once('ready-to-show', () => win.show());
   win.loadURL(`http://127.0.0.1:${PORT}/`);
 
-  // Après réduction / retour sur l’app : forcer un repaint (corrige écran figé ou loader infini côté GPU).
-  const onResume = () => {
-    if (win.isMinimized()) return;
-    setTimeout(() => triggerRendererRepaint(win), 50);
-  };
+  win.webContents.on('did-finish-load', () => {
+    try {
+      win.webContents.setBackgroundThrottling(false);
+    } catch (_) {}
+  });
+
+  // Réduction, retour barre des tâches, ou autre app au premier plan puis focus : réveiller le rendu.
+  let resumeDebounce = null;
+  function onResume() {
+    clearTimeout(resumeDebounce);
+    resumeDebounce = setTimeout(() => scheduleResumeRepaint(win), 40);
+  }
   win.on('restore', onResume);
   win.on('show', onResume);
+  win.on('focus', onResume);
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);

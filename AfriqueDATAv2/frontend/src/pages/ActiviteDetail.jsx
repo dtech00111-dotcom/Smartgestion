@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { FileSpreadsheet, FileText, ArrowLeft, Users, DollarSign, CheckCircle, Plus, UserPlus, Copy, Pencil, Trash2 } from 'lucide-react';
+import { FileSpreadsheet, FileText, ArrowLeft, Users, Coins, CheckCircle, Plus, UserPlus, Copy, Pencil, Trash2 } from 'lucide-react';
 import StudentSearch from '../components/StudentSearch';
 import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
@@ -311,7 +311,7 @@ export default function ActiviteDetail() {
             </div>
             <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
               <div className="flex items-center gap-2 text-slate-500">
-                <DollarSign className="w-4 h-4" />
+                <Coins className="w-4 h-4" />
                 <span className="text-xs font-medium">Total encaissé</span>
               </div>
               <p className="text-xl font-bold text-primary-600 mt-1">{total.toLocaleString()} FC</p>

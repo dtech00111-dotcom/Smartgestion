@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { DollarSign, CheckCircle, Clock, ChevronRight, Download } from 'lucide-react';
+import { Coins, CheckCircle, Clock, ChevronRight, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ENCAISSEMENT_PARTICIPATION_OPTIONS, labelParticipationEncaissement } from '../lib/billingLabels';
 
@@ -140,7 +140,7 @@ export default function Paiements() {
             Excel visiteurs
           </button>
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-primary-600" />
+            <Coins className="w-5 h-5 text-primary-600" />
             <span className="text-sm text-slate-600">Total inscriptions :</span>
             <span className="font-bold text-slate-800">{total.toLocaleString()} FC</span>
           </div>
@@ -223,7 +223,7 @@ export default function Paiements() {
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-6 py-3 border-b border-slate-100 flex items-center gap-2">
-          <DollarSign className="w-5 h-5 text-slate-500" />
+          <Coins className="w-5 h-5 text-slate-500" />
           <h2 className="font-semibold text-slate-800">Toutes les inscriptions (détail facturation)</h2>
         </div>
         <div className="overflow-x-auto">

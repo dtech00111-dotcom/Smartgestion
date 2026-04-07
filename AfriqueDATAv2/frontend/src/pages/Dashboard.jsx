@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Row, Col, Form, InputGroup, Button, Table, Spinner } from 'react-bootstrap';
 import { supabase } from '../lib/supabase';
-import { Search, CalendarDays, Users, DollarSign, ChevronRight, AlertCircle } from 'lucide-react';
+import { Search, CalendarDays, Users, Coins, Wallet, ChevronRight, AlertCircle } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -182,13 +182,13 @@ export default function Dashboard() {
 
   const hasSearchResults = searchResults.activities.length > 0 || searchResults.students.length > 0;
   const cards = [
-    { label: "Aujourd'hui (inscriptions)", value: todayEncaisse.toLocaleString() + ' FC', sublabel: 'via QR / participations', Icon: DollarSign, color: CARD_COLORS[1], href: '/admin/paiements' },
+    { label: "Aujourd'hui (inscriptions)", value: todayEncaisse.toLocaleString() + ' FC', sublabel: 'via QR / participations', Icon: Coins, color: CARD_COLORS[1], href: '/admin/paiements' },
     { label: 'Visiteurs (fiches)', value: stats.visiteursFiches, sublabel: 'registre visiteurs', Icon: Users, color: CARD_COLORS[2], href: '/admin/visiteurs' },
     { label: 'Abonnements actifs', value: stats.abonnementsActifs, sublabel: 'comptes actifs', Icon: CalendarDays, color: CARD_COLORS[0], href: '/admin/abonner' },
-    { label: 'Caisse du jour', value: `${stats.caisseJourFc.toLocaleString()} FC`, sublabel: stats.caisseJourUsd ? `${stats.caisseJourUsd.toLocaleString()} USD (net)` : 'Facturation & caisse', Icon: DollarSign, color: CARD_COLORS[3], href: '/admin/facturation' },
+    { label: 'Caisse du jour', value: `${stats.caisseJourFc.toLocaleString()} FC`, sublabel: stats.caisseJourUsd ? `${stats.caisseJourUsd.toLocaleString()} USD (net)` : 'Facturation & caisse', Icon: Wallet, color: CARD_COLORS[3], href: '/admin/facturation' },
     { label: 'Total activités', value: stats.activites, sublabel: 'activités créées', Icon: CalendarDays, color: '#991b1b', href: '/admin/activites' },
     { label: 'Participants (inscr.)', value: stats.etudiants + stats.visiteurs, sublabel: `${stats.etudiants} ét., ${stats.visiteurs} vis.`, Icon: Users, color: CARD_COLORS[2], href: '/admin/paiements' },
-    { label: 'Total encaissé (inscr.)', value: stats.totalEncaisse.toLocaleString() + ' FC', sublabel: null, Icon: DollarSign, color: CARD_COLORS[3], href: '/admin/paiements' },
+    { label: 'Total encaissé (inscr.)', value: stats.totalEncaisse.toLocaleString() + ' FC', sublabel: null, Icon: Coins, color: CARD_COLORS[3], href: '/admin/paiements' },
   ];
 
   if (loading) {
